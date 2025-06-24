@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TaskFlow - Gerenciador de Tarefas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100 text-gray-800 font-sans">
+    <!-- Navbar -->
+    <nav class="bg-white shadow p-4 flex justify-between items-center">
+      <h1 class="text-xl font-bold text-indigo-600">TaskFlow</h1>
+      <div class="space-x-4">
+        <a href="#kanban" class="text-gray-600 hover:text-indigo-600">Kanban</a>
+        <a href="#calendar" class="text-gray-600 hover:text-indigo-600">Calendário</a>
+        <a href="#analytics" class="text-gray-600 hover:text-indigo-600">Relatórios</a>
+      </div>
+    </nav>
+
+    <!-- Kanban Section -->
+    <section id="kanban" class="p-6">
+      <h2 class="text-2xl font-semibold mb-4">Quadro de Tarefas</h2>
+      <div class="grid grid-cols-3 gap-4">
+        <div class="bg-white rounded-xl shadow p-4">
+          <h3 class="font-semibold text-lg mb-2">A Fazer</h3>
+          <div id="todo" class="space-y-2"></div>
+        </div>
+        <div class="bg-white rounded-xl shadow p-4">
+          <h3 class="font-semibold text-lg mb-2">Em Progresso</h3>
+          <div id="inProgress" class="space-y-2"></div>
+        </div>
+        <div class="bg-white rounded-xl shadow p-4">
+          <h3 class="font-semibold text-lg mb-2">Concluído</h3>
+          <div id="done" class="space-y-2"></div>
+        </div>
+      </div>
+
+      <div class="mt-6">
+        <input type="text" id="taskInput" placeholder="Nova tarefa..." class="border p-2 rounded w-1/2" />
+        <input type="date" id="taskDate" class="border p-2 rounded ml-2" />
+        <button onclick="addTask()" class="bg-indigo-600 text-white px-4 py-2 rounded ml-2">Adicionar</button>
+      </div>
+    </section>
+
+    <!-- Calendar Section -->
+    <section id="calendar" class="p-6">
+      <h2 class="text-2xl font-semibold mb-4">Calendário</h2>
+      <div class="flex items-center justify-between mb-4">
+        <button onclick="prevMonth()" class="text-indigo-600">← Mês Anterior</button>
+        <h3 id="calendarTitle" class="text-lg font-bold"></h3>
+        <button onclick="nextMonth()" class="text-indigo-600">Próximo Mês →</button>
+      </div>
+      <div class="grid grid-cols-7 gap-2 text-center" id="calendarGrid"></div>
+    </section>
+
+    <!-- Analytics Section -->
+    <section id="analytics" class="p-6">
+      <h2 class="text-2xl font-semibold mb-4">Relatórios de Produtividade</h2>
+      <canvas id="productivityChart" class="bg-white p-4 rounded shadow w-full max-w-3xl mx-auto"></canvas>
+    </section>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      const todo = document.getElementById("todo");
+      const taskDateInput = document.getElementById("taskDate");
+      let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+
+      function saveTasks() {
+        localStorage.setItem("tasks", JSON.stringify(tasks));
+      }
+
+      function addTask() {
+        const input = document.getElementById("taskInput");
+        const date = taskDateInput.value;
+        const text = input.value.trim();
+        if (text !== "" && date !== "") {
+          const task = { text, date, status: "todo" };
+          tasks.push(task);
+          saveTasks();
+          renderTasks();
+          renderCalendar();
+          input.value = "";
+          taskDateInput.value = "";
+        }
+      }
+
+      function moveToDone(index) {
+        tasks[index].status = "done";
+        saveTasks();
+        renderTasks();
+        renderCalendar();
+      }
+
+      function renderTasks() {
+        document.getElementById("todo").innerHTML = "";
+        document.getElementById("done").innerHTML = "";
+        tasks.forEach((task, index) => {
+          const div = document.createElement("div");
+          div.className = "p-2 bg-indigo-100 rounded shadow text-sm flex justify-between";
+          div.innerHTML = `${task.text} <span class='text-xs text-gray-500 ml-2'>(${task.date})</span>`;
+          if (task.status === "todo") {
+            const btn = document.createElement("button");
+            btn.className = "text-xs text-green-600 ml-2";
+            btn.innerText = "Concluir";
+            btn.onclick = () => moveToDone(index);
+            div.appendChild(btn);
+            document.getElementById("todo").appendChild(div);
+          } else if (task.status === "done") {
+            document.getElementById("done").appendChild(div);
+          }
+        });
+      }
+
+      const calendarTitle = document.getElementById("calendarTitle");
+      const calendarGrid = document.getElementById("calendarGrid");
+      let currentDate = new Date();
+
+      function renderCalendar() {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const firstDay = new Date(year, month, 1).getDay();
+        const lastDate = new Date(year, month + 1, 0).getDate();
+
+        calendarTitle.innerText = `${currentDate.toLocaleString("default", { month: "long" })} ${year}`;
+        calendarGrid.innerHTML = "";
+
+        const daysOfWeek = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+        daysOfWeek.forEach(day => {
+          const div = document.createElement("div");
+          div.className = "font-semibold";
+          div.innerText = day;
+          calendarGrid.appendChild(div);
+        });
+
+        for (let i = 0; i < firstDay; i++) {
+          calendarGrid.appendChild(document.createElement("div"));
+        }
+
+        for (let day = 1; day <= lastDate; day++) {
+          const fullDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          const div = document.createElement("div");
+          div.className = "p-2 bg-white rounded shadow text-sm h-20 overflow-auto text-left";
+          div.innerHTML = `<div class='font-bold'>${day}</div>`;
+
+          tasks.filter(t => t.date === fullDate).forEach(t => {
+            const item = document.createElement("div");
+            item.className = `text-xs ${t.status === 'done' ? 'text-green-600' : 'text-indigo-600'}`;
+            item.innerText = t.text;
+            div.appendChild(item);
+          });
+
+          calendarGrid.appendChild(div);
+        }
+      }
+
+      function prevMonth() {
+        currentDate.setMonth(currentDate.getMonth() - 1);
+        renderCalendar();
+      }
+
+      function nextMonth() {
+        currentDate.setMonth(currentDate.getMonth() + 1);
+        renderCalendar();
+      }
+
+      function renderChart() {
+        const ctx = document.getElementById('productivityChart').getContext('2d');
+        const completedPerDay = {};
+        tasks.forEach(t => {
+          if (t.status === 'done') {
+            completedPerDay[t.date] = (completedPerDay[t.date] || 0) + 1;
+          }
+        });
+
+        const labels = Object.keys(completedPerDay).sort();
+        const data = labels.map(date => completedPerDay[date]);
+
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Tarefas Concluídas por Dia',
+              data: data,
+              backgroundColor: 'rgba(79, 70, 229, 0.7)',
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              y: {
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      }
+
+      renderTasks();
+      renderCalendar();
+      renderChart();
+    </script>
+  </body>
+</html>
